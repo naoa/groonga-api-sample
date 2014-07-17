@@ -105,13 +105,13 @@ record_insert(grn_ctx *ctx, grn_obj *table, grn_obj *column, char *key, char *re
 }
 
 int
-get_record_print(grn_ctx *ctx, grn_obj *column, grn_id id)
+record_print(grn_ctx *ctx, grn_obj *column, grn_id id)
 {
   grn_obj bulk;
   GRN_TEXT_INIT(&bulk, 0);
   GRN_BULK_REWIND(&bulk);
   grn_obj_get_value(ctx, column, id, &bulk);
-  printf("get_recode=%s\n", GRN_BULK_HEAD(&bulk));
+  printf("%s\n", GRN_BULK_HEAD(&bulk));
   grn_obj_unlink(ctx, &bulk);
 
   return 0;
@@ -144,10 +144,13 @@ table_select_by_filter(grn_ctx *ctx, grn_obj *table, char *filter)
 }
 
 int
-column_print(grn_ctx *ctx, grn_obj *table, grn_obj *column)
+column_print(grn_ctx *ctx, grn_obj *table, char *column_name)
 {
   grn_table_cursor *cur;
+  grn_obj *column;
   grn_obj buf;
+
+  column = grn_obj_column(ctx, table, column_name, strlen(column_name));
   GRN_TEXT_INIT(&buf, 0);
   if ((cur = grn_table_cursor_open(ctx, table, NULL, 0, NULL, 0, 0, -1,
                                    GRN_CURSOR_BY_ID))) {
@@ -155,7 +158,7 @@ column_print(grn_ctx *ctx, grn_obj *table, grn_obj *column)
     while ((id = grn_table_cursor_next(ctx, cur)) != GRN_ID_NIL) {
       GRN_BULK_REWIND(&buf);
       grn_obj_get_value(ctx, column, id, &buf);
-      printf("hit_record=%s\n", GRN_TEXT_VALUE(&buf));
+      printf("%s\n", GRN_TEXT_VALUE(&buf));
     }
   }
   grn_obj_unlink(ctx, &buf);
@@ -169,7 +172,6 @@ main(int argc, char **argv)
   grn_obj *db, *table, *column;
   grn_id id;
   grn_obj *result;
-  grn_obj *result_column;
   
   const char *path = "test.grn";
   
@@ -194,14 +196,16 @@ main(int argc, char **argv)
   
   table = table_create(&ctx, "data");
   column = column_create(&ctx, table, "column");
+
   id = record_insert(&ctx, table, column, "groonga", "groonga world");
-  get_record_print(&ctx, column, id);
+  printf("add record:\n");
+  record_print(&ctx, column, id);
 
   lexicon_create(&ctx, table, column, "lexicon");
 
   result = table_select_by_filter(&ctx, table, "column @ \"groonga\"");
-  result_column = grn_obj_column(&ctx, result, "_key", strlen("_key"));
-  column_print(&ctx, result, result_column);
+  printf("hit records:\n");
+  column_print(&ctx, result, "column");
 
   if (grn_obj_close(&ctx, db)) {
     fprintf(stderr, "grn_obj_close() failed\n");
