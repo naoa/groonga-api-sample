@@ -198,7 +198,7 @@ main(int argc, char **argv)
   column = column_create(&ctx, table, "column");
 
   id = record_insert(&ctx, table, column, "groonga", "groonga world");
-  printf("add record:\n");
+  printf("add record:");
   record_print(&ctx, column, id);
 
   lexicon_create(&ctx, table, column, "lexicon");
