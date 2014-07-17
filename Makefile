@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Ofast -lgroonga -I/usr/include/groonga
+CFLAGS = -Wall -O2 -lgroonga -I/usr/include/groonga
 
 all: ctx_sample table_sample
 
