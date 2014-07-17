@@ -46,7 +46,7 @@ lexicon_create(grn_ctx *ctx, grn_obj *target_table, grn_obj *target_column,
   grn_obj bulk;
 
   key_type = grn_ctx_at(ctx, GRN_DB_SHORT_TEXT);
-  lexicon = grn_table_create(ctx, "lexicon", strlen("lexicon"),
+  lexicon = grn_table_create(ctx, lexicon_name, strlen(lexicon_name),
                              NULL,
                              GRN_OBJ_TABLE_PAT_KEY|GRN_OBJ_PERSISTENT,
                              key_type, NULL);
