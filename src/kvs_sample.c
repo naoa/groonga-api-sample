@@ -33,20 +33,20 @@ main(int argc, char **argv)
     hash = grn_hash_open(&ctx, hash_path);
   }
 
+  char *add_key = "key";
   void *got_value;
   void *value_buf = NULL;
-  char *add_value = "key";
   int added = 0;
 
-  id = grn_hash_add(&ctx, hash, add_value, strlen(add_value), &value_buf, &added);
+  id = grn_hash_add(&ctx, hash, add_key, strlen(add_key), &value_buf, &added);
   if (added) {
     memcpy(value_buf, "value", strlen("value"));
   }
 
-  grn_hash_get(&ctx, hash, "key", strlen("key"), &got_value);
+  grn_hash_get(&ctx, hash, add_key, strlen(add_key), &got_value);
   printf("got_value=%s\n", (char *)got_value);
 
-  grn_hash_delete(&ctx, hash, "key", strlen("key"), NULL);
+  grn_hash_delete(&ctx, hash, add_key, strlen(add_key), NULL);
   got_value = "";
   grn_hash_get_value(&ctx, hash, id, &got_value);
   printf("got_value=%s\n", (char *)got_value);
