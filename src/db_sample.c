@@ -163,6 +163,7 @@ print_column(grn_ctx *ctx, grn_obj *table, char *column_name)
     }
   }
   grn_obj_unlink(ctx, &buf);
+  grn_table_cursor_close(ctx, cur);
   return 0;
 }
 
