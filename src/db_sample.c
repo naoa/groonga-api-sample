@@ -4,39 +4,40 @@
 #include <groonga.h>
 
 grn_obj *
-table_create(grn_ctx *ctx, char *table_name)
+create_table(grn_ctx *ctx, char *table_name)
 {
   grn_obj *table, *key_type;
 
   key_type = grn_ctx_at(ctx, GRN_DB_SHORT_TEXT);
-  table = grn_table_create(ctx, table_name, strlen(table_name),
-                           NULL,
-                           GRN_OBJ_TABLE_HASH_KEY|GRN_OBJ_PERSISTENT,
-                           key_type, NULL);
-  if (table == NULL) {
-    table = grn_ctx_get(ctx, table_name, strlen(table_name));
+  table = grn_ctx_get(ctx, table_name, strlen(table_name));
+  if (!table) {
+    table = grn_table_create(ctx, table_name, strlen(table_name),
+                             NULL,
+                             GRN_OBJ_TABLE_HASH_KEY|GRN_OBJ_PERSISTENT,
+                             key_type, NULL);
   }
   return table;
 }
 
 grn_obj *
-column_create(grn_ctx *ctx, grn_obj *table, char *column_name)
+create_column(grn_ctx *ctx, grn_obj *table, char *column_name)
 {
   grn_obj *column, *value_type;
 
   value_type = grn_ctx_at(ctx, GRN_DB_TEXT);
-  column = grn_column_create(ctx, table, column_name, strlen(column_name),
-                             NULL,
-                             GRN_OBJ_PERSISTENT|GRN_OBJ_COLUMN_SCALAR,
-                             value_type);
-  if (column == NULL) {
-    column = grn_obj_column(ctx, table, column_name, strlen(column_name));
+
+  column = grn_obj_column(ctx, table, column_name, strlen(column_name));
+  if (!column) {
+    column = grn_column_create(ctx, table, column_name, strlen(column_name),
+                               NULL,
+                               GRN_OBJ_PERSISTENT|GRN_OBJ_COLUMN_SCALAR,
+                               value_type);
   }
   return column;
 }
 
 grn_obj *
-lexicon_create(grn_ctx *ctx, grn_obj *target_table, grn_obj *target_column,
+create_lexicon(grn_ctx *ctx, grn_obj *target_table, grn_obj *target_column,
                char *lexicon_name)
 {
   grn_obj *key_type;
@@ -84,7 +85,7 @@ lexicon_create(grn_ctx *ctx, grn_obj *target_table, grn_obj *target_column,
 }
   
 grn_id
-record_insert(grn_ctx *ctx, grn_obj *table, grn_obj *column, char *key, char *record)
+insert_record(grn_ctx *ctx, grn_obj *table, grn_obj *column, char *key, char *record)
 {
   grn_id id;
   grn_rc rc;
@@ -105,7 +106,7 @@ record_insert(grn_ctx *ctx, grn_obj *table, grn_obj *column, char *key, char *re
 }
 
 int
-record_print(grn_ctx *ctx, grn_obj *column, grn_id id)
+print_record(grn_ctx *ctx, grn_obj *column, grn_id id)
 {
   grn_obj bulk;
   GRN_TEXT_INIT(&bulk, 0);
@@ -144,7 +145,7 @@ table_select_by_filter(grn_ctx *ctx, grn_obj *table, char *filter)
 }
 
 int
-column_print(grn_ctx *ctx, grn_obj *table, char *column_name)
+print_column(grn_ctx *ctx, grn_obj *table, char *column_name)
 {
   grn_table_cursor *cur;
   grn_obj *column;
@@ -194,18 +195,18 @@ main(int argc, char **argv)
     return -1;
   }
   
-  table = table_create(&ctx, "data");
-  column = column_create(&ctx, table, "column");
+  table = create_table(&ctx, "data");
+  column = create_column(&ctx, table, "column");
 
-  id = record_insert(&ctx, table, column, "groonga", "groonga world");
+  id = insert_record(&ctx, table, column, "groonga", "groonga world");
   printf("add record:");
-  record_print(&ctx, column, id);
+  print_record(&ctx, column, id);
 
-  lexicon_create(&ctx, table, column, "lexicon");
+  create_lexicon(&ctx, table, column, "lexicon");
 
   result = table_select_by_filter(&ctx, table, "column @ \"groonga\"");
   printf("hit records:\n");
-  column_print(&ctx, result, "column");
+  print_column(&ctx, result, "column");
 
   if (grn_obj_close(&ctx, db)) {
     fprintf(stderr, "grn_obj_close() failed\n");
