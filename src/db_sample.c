@@ -209,6 +209,13 @@ main(int argc, char **argv)
   printf("hit records:\n");
   print_column(&ctx, result, "column");
 
+  if (table) {
+    grn_obj_unlink(&ctx, table);
+  }
+  if (column) {
+    grn_obj_unlink(&ctx, column);
+  }
+
   if (grn_obj_close(&ctx, db)) {
     fprintf(stderr, "grn_obj_close() failed\n");
     return -1;
