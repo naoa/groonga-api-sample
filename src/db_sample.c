@@ -6,15 +6,14 @@
 grn_obj *
 create_table(grn_ctx *ctx, char *table_name)
 {
-  grn_obj *table, *key_type;
+  grn_obj *table;
 
-  key_type = grn_ctx_at(ctx, GRN_DB_SHORT_TEXT);
   table = grn_ctx_get(ctx, table_name, strlen(table_name));
   if (!table) {
     table = grn_table_create(ctx, table_name, strlen(table_name),
                              NULL,
                              GRN_OBJ_TABLE_HASH_KEY|GRN_OBJ_PERSISTENT,
-                             key_type, NULL);
+                             grn_ctx_at(ctx, GRN_DB_SHORT_TEXT), NULL);
   }
   return table;
 }
@@ -22,16 +21,14 @@ create_table(grn_ctx *ctx, char *table_name)
 grn_obj *
 create_column(grn_ctx *ctx, grn_obj *table, char *column_name)
 {
-  grn_obj *column, *value_type;
-
-  value_type = grn_ctx_at(ctx, GRN_DB_TEXT);
+  grn_obj *column;
 
   column = grn_obj_column(ctx, table, column_name, strlen(column_name));
   if (!column) {
     column = grn_column_create(ctx, table, column_name, strlen(column_name),
                                NULL,
                                GRN_OBJ_PERSISTENT|GRN_OBJ_COLUMN_SCALAR,
-                               value_type);
+                               grn_ctx_at(ctx, GRN_DB_TEXT));
   }
   return column;
 }
@@ -40,17 +37,15 @@ grn_obj *
 create_lexicon(grn_ctx *ctx, grn_obj *target_table, grn_obj *target_column,
                char *lexicon_name)
 {
-  grn_obj *key_type;
   grn_obj *lexicon, *tokenizer, *normalizer, *index_column;
   grn_id column_id;
 
   grn_obj bulk;
 
-  key_type = grn_ctx_at(ctx, GRN_DB_SHORT_TEXT);
   lexicon = grn_table_create(ctx, lexicon_name, strlen(lexicon_name),
                              NULL,
                              GRN_OBJ_TABLE_PAT_KEY|GRN_OBJ_PERSISTENT,
-                             key_type, NULL);
+                             grn_ctx_at(ctx, GRN_DB_SHORT_TEXT), NULL);
   if (lexicon == NULL) {
     lexicon = grn_ctx_get(ctx, lexicon_name, strlen(lexicon_name));
   }
@@ -83,7 +78,7 @@ create_lexicon(grn_ctx *ctx, grn_obj *target_table, grn_obj *target_column,
 
   return lexicon;
 }
-  
+
 grn_id
 insert_record(grn_ctx *ctx, grn_obj *table, grn_obj *column, char *key, char *record)
 {
@@ -105,7 +100,7 @@ insert_record(grn_ctx *ctx, grn_obj *table, grn_obj *column, char *key, char *re
   return id;
 }
 
-int
+void
 print_record(grn_ctx *ctx, grn_obj *column, grn_id id)
 {
   grn_obj bulk;
@@ -114,8 +109,6 @@ print_record(grn_ctx *ctx, grn_obj *column, grn_id id)
   grn_obj_get_value(ctx, column, id, &bulk);
   printf("%s\n", GRN_BULK_HEAD(&bulk));
   grn_obj_unlink(ctx, &bulk);
-
-  return 0;
 }
 
 grn_obj *
@@ -144,27 +137,57 @@ table_select_by_filter(grn_ctx *ctx, grn_obj *table, char *filter)
   return result;
 }
 
-int
-print_column(grn_ctx *ctx, grn_obj *table, char *column_name)
+grn_obj *
+table_sort(grn_ctx *ctx, grn_obj *table, const char *sortby)
+{
+  grn_obj *sorted = NULL;
+  grn_table_sort_key *sort_keys = NULL;
+  uint32_t n_sort_keys;
+  if (sortby) {
+    sort_keys = grn_table_sort_key_from_str(ctx,
+                                            sortby,
+                                            strlen(sortby),
+                                            table, &n_sort_keys);
+    if (sort_keys) {
+      sorted = grn_table_create(ctx, NULL, 0, NULL, GRN_OBJ_TABLE_NO_KEY,
+                                 NULL, table);
+      if (sorted) {
+        grn_table_sort(ctx, table, 0, -1,
+                       sorted, sort_keys, n_sort_keys);
+      }
+      grn_table_sort_key_close(ctx, sort_keys, n_sort_keys);
+    }
+  }
+  return sorted;
+}
+
+void
+dump_records(grn_ctx *ctx, grn_obj *table, const char *column_name)
 {
   grn_table_cursor *cur;
-  grn_obj *column;
+  grn_obj *key_accessor;
+  grn_obj *column_accessor;
   grn_obj buf;
 
-  column = grn_obj_column(ctx, table, column_name, strlen(column_name));
+  key_accessor = grn_obj_column(ctx, table, GRN_COLUMN_NAME_KEY, GRN_COLUMN_NAME_KEY_LEN);
+  column_accessor = grn_obj_column(ctx, table, column_name, strlen(column_name));
   GRN_TEXT_INIT(&buf, 0);
   if ((cur = grn_table_cursor_open(ctx, table, NULL, 0, NULL, 0, 0, -1,
                                    GRN_CURSOR_BY_ID))) {
     grn_id id;
     while ((id = grn_table_cursor_next(ctx, cur)) != GRN_ID_NIL) {
       GRN_BULK_REWIND(&buf);
-      grn_obj_get_value(ctx, column, id, &buf);
-      printf("%s\n", GRN_TEXT_VALUE(&buf));
+      grn_obj_get_value(ctx, key_accessor, id, &buf);
+      printf("%.*s:", (int)GRN_TEXT_LEN(&buf), GRN_TEXT_VALUE(&buf));
+      GRN_BULK_REWIND(&buf);
+      grn_obj_get_value(ctx, column_accessor, id, &buf);
+      printf("%.*s\n", (int)GRN_TEXT_LEN(&buf), GRN_TEXT_VALUE(&buf));
     }
   }
-  grn_obj_unlink(ctx, &buf);
+  GRN_OBJ_FIN(ctx, &buf);
+  grn_obj_unlink(ctx, key_accessor);
+  grn_obj_unlink(ctx, column_accessor);
   grn_table_cursor_close(ctx, cur);
-  return 0;
 }
 
 int
@@ -174,9 +197,9 @@ main(int argc, char **argv)
   grn_obj *db, *table, *column;
   grn_id id;
   grn_obj *result;
-  
+
   const char *path = "test.grn";
-  
+
   if (grn_init()) {
     fprintf(stderr, "grn_init() failed\n");
     return -1;
@@ -195,7 +218,7 @@ main(int argc, char **argv)
     fprintf(stderr, "db initialize failed\n");
     return -1;
   }
-  
+
   table = create_table(&ctx, "data");
   column = create_column(&ctx, table, "column");
 
@@ -203,11 +226,24 @@ main(int argc, char **argv)
   printf("add record:");
   print_record(&ctx, column, id);
 
+  id = insert_record(&ctx, table, column, "droonga", "distributed groonga");
+  printf("add record:");
+  print_record(&ctx, column, id);
+
   create_lexicon(&ctx, table, column, "lexicon");
 
   result = table_select_by_filter(&ctx, table, "column @ \"groonga\"");
   printf("hit records:\n");
-  print_column(&ctx, result, "column");
+
+  {
+    grn_obj *sorted;
+    sorted = table_sort(&ctx, result, "_key");
+
+    if (sorted) {
+      dump_records(&ctx, sorted, "column");
+      grn_obj_unlink(&ctx, sorted);
+    }
+  }
 
   if (table) {
     grn_obj_unlink(&ctx, table);
@@ -220,7 +256,7 @@ main(int argc, char **argv)
     fprintf(stderr, "grn_obj_close() failed\n");
     return -1;
   }
-  
+
   if (grn_ctx_fin(&ctx)) {
     fprintf(stderr, "grn_ctx_fin() failed\n");
     return -1;
